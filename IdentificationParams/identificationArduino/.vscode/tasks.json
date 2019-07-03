@@ -1,0 +1,58 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "RemoteUpload",
+            "type": "shell",
+            "command": "./.bash/remoteUploadArduino.sh",
+            "args": [
+                "${input:rpiUserName}",
+                "${input:rpiAddress}",
+                "${workspaceFolder}/build/megaatmega2560/firmware.hex",
+                "${input:arduinoPort}"
+            ],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "RemoteSerial",
+            "type": "shell",
+            "command": "./.bash/remoteSerialCom.sh",
+            "args": [
+                "${input:rpiUserName}",
+                "${input:rpiAddress}",
+                "${input:arduinoPort}",
+                "${input:monitorSpeed}"
+            ],
+            "group": "build",
+            "problemMatcher": []
+        },
+
+    ],
+    "inputs": [
+        {
+            "type": "promptString",
+            "id": "rpiUserName",
+            "description": "Username of RaspberryPi? ",
+            "default": "pi"
+        },
+        {
+            "type": "promptString",
+            "id": "rpiAddress",
+            "description": "Adresse of RaspberryPi? ",
+            "default": "192.168.100.100"
+        },
+        {
+            "type": "promptString",
+            "id": "arduinoPort",
+            "description": "Arduino communication port? ",
+            "default": "/dev/ttyACM0"
+        },
+        {
+            "type": "promptString",
+            "id": "monitorSpeed",
+            "description": "communication baud rate? ",
+            "default": "115200"
+        }
+    ]
+}
