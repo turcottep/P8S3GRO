@@ -25,6 +25,8 @@
 ArduinoX AX_;                       // objet arduinoX
 MegaServo servo_;                   // objet servomoteur
 VexQuadEncoder vexEncoder_;         // objet encodeur vex
+VexQuadEncoder vexEncoderPivot_;         // objet encodeur vex
+
 IMU9DOF imu_;                       // objet imu
 PID pid_;                           // objet PID
 
@@ -58,8 +60,9 @@ float p5 = 1;
 float p6 = 1;
 
 float vit = 0;
-float vMax = 0.15;
-
+float breakVit = 0;
+float vMax = 0.5;
+int angle_;
 /*------------------------- Prototypes de fonctions -------------------------*/
 
 void timerCallback();
@@ -77,6 +80,12 @@ void Stop();
 int PoToTic(float cm);
 void activateMag(int choix);
 void pidPivot(int angle);
+void distanceTest(float distanceGoal);
+void distanceTest2(float distanceGoal, float vit);
+float getEncoder(){return -vexEncoder_.getCount();}
+float getAngle(){return vexEncoderPivot_.getCount() - angleInit;}
+
+void oscilleFAT();
 /*---------------------------- fonctions "Main" -----------------------------*/
 
 void setup() {
@@ -84,9 +93,12 @@ void setup() {
   AX_.init();                       // initialisation de la carte ArduinoX 
   imu_.init();                      // initialisation de la centrale inertielle
   vexEncoder_.init(2,3);            // initialisation de l'encodeur VEX
+  vexEncoderPivot_.init(18,19);            // initialisation de l'encodeur VEX
+
   // attache de l'interruption pour encodeur vex
   attachInterrupt(vexEncoder_.getPinInt(), []{vexEncoder_.isr();}, FALLING);
-  
+  attachInterrupt(vexEncoderPivot_.getPinInt(), []{vexEncoderPivot_.isr();}, FALLING);
+
   // Chronometre envoie message
   timerSendMsg_.setDelay(UPDATE_PERIODE);
   timerSendMsg_.setCallback(timerCallback);
@@ -104,38 +116,151 @@ void setup() {
   pid_.setEpsilon(0.001);
   pid_.setPeriod(10);
 
-  //angleInit = vexEncoder_.getCount;
+  angleInit = vexEncoderPivot_.getCount();
   pinMode(MAGPIN,OUTPUT);
-  
+  activateMag(1);
+  delay(1000);
+  // distanceTest2(-20, .1);
+  // distanceTest2(0, .1);
 }
 
 void loop() {
 
- 
-  avance(PoToTic(20), 0);
-  avance(PoToTic(20), 1);
-  avance(PoToTic(20), 0);
-  avance(PoToTic(20), 1);
-  delay(5000);
+  //Serial.println();
+  // AX_.setMotorPWM(0,.03);
+  // AX_.setMotorPWM(1,.03);
 
 
 
-  // POUR JSON
-  if(shouldRead_){
-    readMsg();
-  }
-  if(shouldSend_){
-    sendMsg();
-  }
-  if(shouldPulse_){
-    startPulse();
-  }
-  // mise a jour des chronometres
-  timerSendMsg_.update();
-  timerPulse_.update();
+  // Serial.print(vexEncoder_.getCount());
+  // Serial.print("  ||  ");
+
+  // distanceTest2(20,.4);
+  // delay(100);
+  // distanceTest2(0,.4);
+  // delay(100);
+
+  oscilleFAT();
+  distanceTest2(150,.6);
+  while (true){}
+  
+  // if(angle_ > 10){
+  //   distanceTest2(200);
+  //   delay(100);
+  // }
+
+  // distanceTest(0);
+  // delay(1000);
+  
+
+  // // POUR JSON
+  // if(shouldRead_){
+  //   readMsg();
+  // }
+  // if(shouldSend_){
+  //   sendMsg();
+  // }
+  // if(shouldPulse_){
+  //   startPulse();
+  // }
+  // // mise a jour des chronometres
+  // timerSendMsg_.update();
+  // timerPulse_.update();
   
   // mise à jour du PID
   // pid_.run();
+}
+
+void oscilleFAT(){
+  float tInit = float(millis())/1000;
+  float t;
+  float v;
+  bool chill = false;
+  do
+  {
+    t = float(millis())/1000 - tInit;
+    v = vMax*sin(4*t);
+    AX_.setMotorPWM(0,v);
+    AX_.setMotorPWM(1,v);
+    
+    angle_ = getAngle();
+    Serial.print(t);
+    Serial.print("  ||  ");
+    Serial.print(v);
+    Serial.print("  ||  ");
+    Serial.println(angle_);
+    if(angle_ < -15) chill = true;
+  } while (angle_ < 0 || !chill);
+  
+}
+
+void distanceTest2(float distanceGoal, float vit){
+  int sens;
+  int distInit = getEncoder();
+  float distance;
+  float v = vit;
+
+  if (distanceGoal < distInit) sens = 1;
+  else sens = -1;
+
+  AX_.setMotorPWM(0,sens * v);
+  AX_.setMotorPWM(1,sens * v);
+  do
+  {
+    distance = getEncoder();
+    // Serial.print(distanceGoal);
+    // Serial.print("  ||  ");
+    // Serial.println(distance);
+  } while (distance < distanceGoal - 1 || distance > distanceGoal + 1);
+
+  AX_.setMotorPWM(0,-sens * breakVit);
+  AX_.setMotorPWM(1,-sens * breakVit);
+
+}
+
+void distanceTest(float distanceGoal){
+  int distInit = vexEncoder_.getCount();
+  Serial.print("distInit: ");
+  Serial.print(vexEncoder_.getCount());
+  Serial.print("  ||  ");
+  Serial.println(AX_.readEncoder(1));
+  int distance, sens;
+  float v;// = 0.3;
+  if (distanceGoal < distInit)
+  {
+    sens = -1;
+
+  } else
+  {
+    sens = 1;
+  }
+
+  int distToTravel = abs(distanceGoal - distInit);
+  int distTraveled;
+  float distAccel = 100;
+  float distDeccel = 100;
+
+  Serial.print("  distToTravel =  ");
+  Serial.println(distToTravel);
+  do
+  {
+    distance = vexEncoder_.getCount();
+    distTraveled = abs(distance - distInit);
+
+    if(distTraveled < distAccel) v = min(vMax, .05 + distTraveled / distAccel * vMax);
+    else if(distTraveled < distToTravel - distDeccel) v = min(vMax, .05 + distTraveled / distAccel * vMax);
+    else v = 0.05 + vMax*(distToTravel - distTraveled)/distDeccel;
+
+    AX_.setMotorPWM(0,sens * v);
+    AX_.setMotorPWM(1,sens * v);
+
+  } while (distance < distanceGoal - 1 ||distance > distanceGoal + 1 );
+  Serial.print("distFin : ");
+  Serial.print(vexEncoder_.getCount());
+  Serial.print("  ||  ");
+  Serial.println(AX_.readEncoder(1));
+  AX_.setMotorPWM(0,-sens * breakVit);
+  AX_.setMotorPWM(1,-sens * breakVit);
 }
 
 void pidPivot(int angleGoal, int distanceGoalPO){
@@ -244,7 +369,7 @@ void avance(int distance, int side){
   float vitesse = 0.00;
   float enc = 0;
   //Pour acceleration
-  float dist_v = 2000;
+  float dist_v = 1000;
 
   abs(AX_.readEncoder(0));
   abs(AX_.readEncoder(1));
