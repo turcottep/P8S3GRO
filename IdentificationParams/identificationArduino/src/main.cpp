@@ -41,7 +41,8 @@ SoftTimer timerPulse_;              // chronometre pour la duree d'un pulse
 
 uint16_t pulseTime_ = 0;            // temps dun pulse en ms
 float pulsePWM_ = 0.3;                // Amplitude de la tension au moteur [-1,1]
-
+bool Start = false;
+bool Arret = false;
 
 float Axyz[3];                      // tableau pour accelerometre
 float Gxyz[3];                      // tableau pour giroscope
@@ -458,6 +459,10 @@ void sendMsg(){
   // Elements du message
 
   doc["PosRobot"] = (AX_.readEncoder(0)/3200)*(2*PI*0.06); //en mètre
+  doc["StartButton"] = Start;
+  doc["StopButton"] = Arret;
+  doc["Pconsom"] = AX_.getVoltage()*AX_.getCurrent();
+
   doc["time"] = millis();
   doc["potVex"] = analogRead(POTPIN);
   doc["encVex"] = vexEncoder_.getCount();
