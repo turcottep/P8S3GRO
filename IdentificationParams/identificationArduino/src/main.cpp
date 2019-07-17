@@ -470,7 +470,7 @@ void sendMsg(){
   StaticJsonDocument<500> doc;
   // Elements du message
 
-  doc["PosRobot"] = (AX_.readEncoder(0)/3200)*(2*PI*0.06); //en mètre
+  doc["Position"] = (AX_.readEncoder(0)/3200)*(2*PI*0.06); //en mètre
   doc["StartButton"] = Start;
   doc["StopButton"] = Arret;
   doc["Energie"] = Energie();
