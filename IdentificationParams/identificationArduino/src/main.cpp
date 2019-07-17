@@ -65,8 +65,11 @@ float vit = 0;
 float breakVit = 0;
 float vMax = 0.5;
 int angle_;
+double Precorded = 0;
+double EnergieTot = 0;
 /*------------------------- Prototypes de fonctions -------------------------*/
 
+double Energie();
 void timerCallback();
 void startPulse();
 void endPulse();
@@ -171,6 +174,15 @@ void loop() {
   
   // mise à jour du PID
   // pid_.run();
+}
+
+//Retourne l'énergie cumulées
+double Energie(){
+double Pactuelle = AX_.getVoltage()*AX_.getCurrent(); //puissance à ce moment
+double DeltaP = Pactuelle-Precorded;
+Precorded = Pactuelle;
+EnergieTot = EnergieTot + DeltaP/0.2; 
+return EnergieTot;
 }
 
 void oscilleFAT(){
@@ -461,7 +473,7 @@ void sendMsg(){
   doc["PosRobot"] = (AX_.readEncoder(0)/3200)*(2*PI*0.06); //en mètre
   doc["StartButton"] = Start;
   doc["StopButton"] = Arret;
-  doc["Pconsom"] = AX_.getVoltage()*AX_.getCurrent();
+  doc["Pconsom"] = Energie();
 
   doc["time"] = millis();
   doc["potVex"] = analogRead(POTPIN);
