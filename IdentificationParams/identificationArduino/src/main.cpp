@@ -65,8 +65,8 @@ float vit = 0;
 float breakVit = 0;
 float vMax = 0.5;
 int angle_;
-double Precorded = 0;
-double EnergieTot = 0;
+double Precorded = 0; //garde la puissance de T-1 en mémoire
+double EnergieTot = 0; //garde l'énergie totale en mémoire
 /*------------------------- Prototypes de fonctions -------------------------*/
 
 double Energie();
@@ -181,7 +181,7 @@ double Energie(){
 double Pactuelle = AX_.getVoltage()*AX_.getCurrent(); //puissance à ce moment
 double DeltaP = Pactuelle-Precorded;
 Precorded = Pactuelle;
-EnergieTot = EnergieTot + DeltaP/0.2; 
+EnergieTot = EnergieTot + DeltaP/(millis()*1000); 
 return EnergieTot;
 }
 
@@ -473,7 +473,7 @@ void sendMsg(){
   doc["PosRobot"] = (AX_.readEncoder(0)/3200)*(2*PI*0.06); //en mètre
   doc["StartButton"] = Start;
   doc["StopButton"] = Arret;
-  doc["Pconsom"] = Energie();
+  doc["Energie"] = Energie();
 
   doc["time"] = millis();
   doc["potVex"] = analogRead(POTPIN);
