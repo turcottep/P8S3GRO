@@ -19,6 +19,7 @@
 
 #define PASPARTOUR      64          // Nombre de pas par tour du moteur
 #define RAPPORTVITESSE  50          // Rapport de vitesse du moteur
+#define PI 3.141592653589793238462643383279502884197169399375105820974
 
 /*---------------------------- variables globales ---------------------------*/
 
@@ -456,6 +457,7 @@ void sendMsg(){
   StaticJsonDocument<500> doc;
   // Elements du message
 
+  doc["PosRobot"] = (AX_.readEncoder(0)/3200)*(2*PI*0.06); //en mètre
   doc["time"] = millis();
   doc["potVex"] = analogRead(POTPIN);
   doc["encVex"] = vexEncoder_.getCount();
