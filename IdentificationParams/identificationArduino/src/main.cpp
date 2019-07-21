@@ -504,9 +504,9 @@ void readMsg(){
   StaticJsonDocument<500> doc;
   JsonVariant parse_msg;
 
-  // Lecture sur le port Seriel
+  // Lecture sur le port Seriel 
   DeserializationError error = deserializeJson(doc, Serial);
-  shouldRead_ = false;
+  shouldRead_ = true;
 
   // Si erreur dans le message
   if (error) {
