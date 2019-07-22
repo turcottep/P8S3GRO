@@ -176,6 +176,7 @@ void loop() {
   // pid_.run();
 }
 
+//MODIFICATION
 //Retourne l'énergie cumulées
 double Energie(){
 double Pactuelle = AX_.getVoltage()*AX_.getCurrent(); //puissance à ce moment
@@ -465,6 +466,7 @@ void serialEvent(){shouldRead_ = true;}
 
 void timerCallback(){shouldSend_ = true;}
 
+//MODIFICATION
 void sendMsg(){
   /* Envoit du message Json sur le port seriel */
   StaticJsonDocument<500> doc;
@@ -474,6 +476,7 @@ void sendMsg(){
   doc["StartButton"] = Start;
   doc["StopButton"] = Arret;
   doc["Energie"] = Energie();
+  //doc["hauteur"] = //A COMPLETER;
 
   doc["time"] = millis();
   doc["potVex"] = analogRead(POTPIN);
