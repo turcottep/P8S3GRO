@@ -12,7 +12,7 @@
 /*------------------------------ Constantes ---------------------------------*/
 
 #define BAUD            115200      // Frequence de transmission serielle
-#define UPDATE_PERIODE  100         // Periode (ms) d'envoie d'etat general
+#define UPDATE_PERIODE  200         // Periode (ms) d'envoie d'etat general
 
 #define MAGPIN          32          // Port numerique pour electroaimant
 #define POTPIN          A5          // Port analogique pour le potentiometre
@@ -68,6 +68,8 @@ double Precorded = 0; //garde la puissance de T-1 en mémoire
 double EnergieTot = 0; //garde l'énergie totale en mémoire
 bool Start = false;
 bool Arret = false;
+float Lpendule = 0.69; //en metres
+float Hsapin = 0.095; //en metres
 /*------------------------- Prototypes de fonctions -------------------------*/
 double Energie();
 void timerCallback();
@@ -119,7 +121,7 @@ void setup() {
     pid_.setCommandFunc(PIDcommand);
     pid_.setAtGoalFunc(PIDgoalReached);
   pid_.setEpsilon(0.001);
-  pid_.setPeriod(10);
+  pid_.setPeriod(200);
 
   angleInit = vexEncoderPivot_.getCount();
   pinMode(MAGPIN,OUTPUT);
@@ -145,9 +147,9 @@ void loop() {
   // distanceTest2(0,.4);
   // delay(100);
 
-  oscilleFAT();
-  distanceTest2(150,.6);
-  while (true){}
+  //oscilleFAT();
+  //distanceTest2(150,.6);
+  //while (true){}
   
   // if(angle_ > 10){
   //   distanceTest2(200);
@@ -156,21 +158,28 @@ void loop() {
 
   // distanceTest(0);
   // delay(1000);
-  
+  if (Start)
+  {
+    distanceTest2(100,1);
+  }
+  if (Arret)
+  {
+    Stop();
+  }
 
-  // // POUR JSON
-  // if(shouldRead_){
-  //   readMsg();
-  // }
-  // if(shouldSend_){
-  //   sendMsg();
-  // }
-  // if(shouldPulse_){
-  //   startPulse();
-  // }
-  // // mise a jour des chronometres
-  // timerSendMsg_.update();
-  // timerPulse_.update();
+  // POUR JSON
+  if(shouldRead_){
+    readMsg();
+  }
+  if(shouldSend_){
+    sendMsg();
+  }
+  if(shouldPulse_){
+    startPulse();
+  }
+  // mise a jour des chronometres
+  timerSendMsg_.update();
+  timerPulse_.update();
   
   // mise à jour du PID
   // pid_.run();
@@ -225,10 +234,10 @@ void distanceTest2(float distanceGoal, float vit){
 
 void distanceTest(float distanceGoal){
   int distInit = vexEncoder_.getCount();
-  Serial.print("distInit: ");
-  Serial.print(vexEncoder_.getCount());
-  Serial.print("  ||  ");
-  Serial.println(AX_.readEncoder(1));
+  // Serial.print("distInit: ");
+  // Serial.print(vexEncoder_.getCount());
+  // Serial.print("  ||  ");
+  // Serial.println(AX_.readEncoder(1));
   int distance, sens;
   float v;// = 0.3;
   if (distanceGoal < distInit)
@@ -245,8 +254,8 @@ void distanceTest(float distanceGoal){
   float distAccel = 100;
   float distDeccel = 100;
 
-  Serial.print("  distToTravel =  ");
-  Serial.println(distToTravel);
+  // Serial.print("  distToTravel =  ");
+  // Serial.println(distToTravel);
   do
   {
     distance = vexEncoder_.getCount();
@@ -260,10 +269,10 @@ void distanceTest(float distanceGoal){
     AX_.setMotorPWM(1,sens * v);
 
   } while (distance < distanceGoal - 1 ||distance > distanceGoal + 1 );
-  Serial.print("distFin : ");
-  Serial.print(vexEncoder_.getCount());
-  Serial.print("  ||  ");
-  Serial.println(AX_.readEncoder(1));
+  // Serial.print("distFin : ");
+  // Serial.print(vexEncoder_.getCount());
+  // Serial.print("  ||  ");
+  // Serial.println(AX_.readEncoder(1));
   AX_.setMotorPWM(0,-sens * breakVit);
   AX_.setMotorPWM(1,-sens * breakVit);
 }
@@ -460,28 +469,29 @@ void sendMsg(){
   /* Envoit du message Json sur le port seriel */
   StaticJsonDocument<500> doc;
   // Elements du message
-    doc["Position"] = (AX_.readEncoder(0)/3200)*(2*PI*0.06); //en mètre
+    doc["Position"] = int (getEncoder()/0.45)/1.71; //(AX_.GetEncoder(0)/3200)*(2*PI*0.06); //en mètre
   doc["StartButton"] = Start;
   doc["StopButton"] = Arret;
   doc["Energie"] = Energie();
-  //doc["hauteur"] = //A COMPLETER;
+  doc["hauteur"] = (Lpendule+Hsapin)*cos(getAngle()*3.978*PI/180); // AVEC SAPIN. Le 3.978 est un facteur Cambodge
+  
 
   doc["time"] = millis();
   doc["potVex"] = analogRead(POTPIN);
-  doc["encVex"] = vexEncoder_.getCount();
+  // doc["encVex"] = vexEncoder_.getCount();
   doc["goal"] = pid_.getGoal();
   doc["motorPos"] = PIDmeasurement();
   doc["voltage"] = AX_.getVoltage();
   doc["current"] = AX_.getCurrent(); 
   doc["pulsePWM"] = pulsePWM_;
   doc["pulseTime"] = pulseTime_;
-  doc["inPulse"] = isInPulse_;
-  doc["accelX"] = imu_.getAccelX();
-  doc["accelY"] = imu_.getAccelY();
-  doc["accelZ"] = imu_.getAccelZ();
-  doc["gyroX"] = imu_.getGyroX();
-  doc["gyroY"] = imu_.getGyroY();
-  doc["gyroZ"] = imu_.getGyroZ();
+  // doc["inPulse"] = isInPulse_;
+  // doc["accelX"] = imu_.getAccelX();
+  // doc["accelY"] = imu_.getAccelY();
+  // doc["accelZ"] = imu_.getAccelZ();
+  // doc["gyroX"] = imu_.getGyroX();
+  // doc["gyroY"] = imu_.getGyroY();
+  // doc["gyroZ"] = imu_.getGyroZ();
   doc["isGoal"] = pid_.isAtGoal();
   // Serialisation
   serializeJson(doc, Serial);
@@ -560,6 +570,18 @@ void readMsg(){
     if(!parse_msg.isNull()){
         activateMag_ = doc["activateMag"];
     }
+  // Start
+    parse_msg = doc["StartButton"];
+    if(!parse_msg.isNull()){
+        Start = doc["StartButton"];
+    }    
+
+    //Stop
+      // Start
+    parse_msg = doc["StopButton"];
+    if(!parse_msg.isNull()){
+        Arret = doc["StopButton"];
+    }    
 }
 
 double Energie(){
