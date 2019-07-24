@@ -63,8 +63,13 @@ float vit = 0;
 float breakVit = 0;
 float vMax = 0.5;
 int angle_;
-/*------------------------- Prototypes de fonctions -------------------------*/
 
+double Precorded = 0; //garde la puissance de T-1 en mémoire
+double EnergieTot = 0; //garde l'énergie totale en mémoire
+bool Start = false;
+bool Arret = false;
+/*------------------------- Prototypes de fonctions -------------------------*/
+double Energie();
 void timerCallback();
 void startPulse();
 void endPulse();
@@ -455,6 +460,11 @@ void sendMsg(){
   /* Envoit du message Json sur le port seriel */
   StaticJsonDocument<500> doc;
   // Elements du message
+    doc["Position"] = (AX_.readEncoder(0)/3200)*(2*PI*0.06); //en mètre
+  doc["StartButton"] = Start;
+  doc["StopButton"] = Arret;
+  doc["Energie"] = Energie();
+  //doc["hauteur"] = //A COMPLETER;
 
   doc["time"] = millis();
   doc["potVex"] = analogRead(POTPIN);
@@ -550,4 +560,12 @@ void readMsg(){
     if(!parse_msg.isNull()){
         activateMag_ = doc["activateMag"];
     }
+}
+
+double Energie(){
+double Pactuelle = AX_.getVoltage()*AX_.getCurrent(); //puissance à ce moment
+double DeltaP = Pactuelle-Precorded;
+Precorded = Pactuelle;
+EnergieTot = EnergieTot + DeltaP/(millis()*1000); 
+return EnergieTot;
 }
