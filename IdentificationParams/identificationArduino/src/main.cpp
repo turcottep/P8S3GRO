@@ -15,6 +15,8 @@
 #define UPDATE_PERIODE  100         // Periode (ms) d'envoie d'etat general
 
 #define MAGPIN          32          // Port numerique pour electroaimant
+#define SWITCH_PIN      8
+
 #define POTPIN          A5          // Port analogique pour le potentiometre
 
 #define PASPARTOUR      64          // Nombre de pas par tour du moteur
@@ -28,7 +30,8 @@ VexQuadEncoder vexEncoder_;         // objet encodeur vex
 VexQuadEncoder vexEncoderPivot_;         // objet encodeur vex
 
 IMU9DOF imu_;                       // objet imu
-PID pid_;                           // objet PID
+PID pidPos_;                           // objet PID
+PID pidAngle_;                           // objet PID
 
 volatile bool shouldSend_ = false;  // drapeau prêt à envoyer un message
 volatile bool shouldRead_ = false;  // drapeau prêt à lire un message
@@ -61,8 +64,16 @@ float p6 = 1;
 
 float vit = 0;
 float breakVit = 0;
-float vMax = 0.5;
-int angle_;
+float distanceInit;
+float vMax = 1;
+float angle_;
+float angle_go;
+float longueur = 69;
+float encodeurInit = 0;
+int state = 1; //machine à états
+int stateOscille = 1; //machine à états oscillation
+bool ready_set = false;
+
 /*------------------------- Prototypes de fonctions -------------------------*/
 
 void timerCallback();
@@ -72,24 +83,40 @@ void sendMsg();
 void readMsg();
 void serialEvent();
 double PIDmeasurement();
-void PIDcommand(double cmd);
+void PIDcommand();
 void PIDgoalReached();
 void checkSpeed(float diff, float vit_actuelle, int side);
 void avance(int distance, int side);
 void Stop();
 int PoToTic(float cm);
-void activateMag(int choix);
 void pidPivot(int angle);
 void distanceTest(float distanceGoal);
-void distanceTest2(float distanceGoal, float vit);
-float getEncoder(){return -vexEncoder_.getCount();}
-float getAngle(){return vexEncoderPivot_.getCount() - angleInit;}
+bool distanceTest2(float distanceGoal, float vit);
+double getEncoder(){return -vexEncoder_.getCount() - encodeurInit;}
+double getAngle(){return float(vexEncoderPivot_.getCount() - angleInit)/88*2*PI;}
+double getAngleDegre(){return getAngle()/(2*PI)*360;}
+float cmToTick(float d){return d/0.425;}
+void activateMag(int choix){digitalWrite(MAGPIN, choix);}
+void setMoteurs(float v){AX_.setMotorPWM(0,-v);AX_.setMotorPWM(1,-v);}
+void stopProgram(){while(true){}}
+void resetAngle(){angleInit = vexEncoderPivot_.getCount();}
+void resetEncodeur(){encodeurInit = -vexEncoder_.getCount();}
 
-void oscilleFAT();
+bool limSwitch(){return analogRead(SWITCH_PIN)>1000;}
+
+void oscilleSIN(float hauteur);
+bool oscilleFAT2(float distance, float hauteur);
+void crisseLeCampFAT();
+void securiteFAT();
+
 /*---------------------------- fonctions "Main" -----------------------------*/
 
 void setup() {
   Serial.begin(BAUD);               // initialisation de la communication serielle
+
+  Serial.println("YOO");
+
+
   AX_.init();                       // initialisation de la carte ArduinoX 
   imu_.init();                      // initialisation de la centrale inertielle
   vexEncoder_.init(2,3);            // initialisation de l'encodeur VEX
@@ -108,17 +135,31 @@ void setup() {
   timerPulse_.setCallback(endPulse);
   
   // Initialisation du PID
-  pid_.setGains(0.25,0.1 ,0);
+  pidPos_.setGains(0.001,0 ,0);
     // Attache des fonctions de retour
-    pid_.setMeasurementFunc(PIDmeasurement);
-    pid_.setCommandFunc(PIDcommand);
-    pid_.setAtGoalFunc(PIDgoalReached);
-  pid_.setEpsilon(0.001);
-  pid_.setPeriod(10);
+  pidPos_.setMeasurementFunc(getEncoder);
+  pidPos_.setCommandFunc(PIDcommand);
+  pidPos_.setAtGoalFunc(PIDgoalReached);
+  pidPos_.setEpsilon(10);
+  pidPos_.setPeriod(100);
 
-  angleInit = vexEncoderPivot_.getCount();
+  pidAngle_.setGains(-0.01,0 ,0);
+    // Attache des fonctions de retour
+  pidAngle_.setMeasurementFunc(getAngleDegre);
+  pidAngle_.setCommandFunc(PIDcommand);
+  pidAngle_.setAtGoalFunc(PIDgoalReached);
+  pidAngle_.setEpsilon(10);
+  pidAngle_.setPeriod(100);
+
+  resetAngle();
   pinMode(MAGPIN,OUTPUT);
   activateMag(1);
+
+  pinMode(53,OUTPUT);
+  digitalWrite(53,HIGH);
+  pinMode(SWITCH_PIN,INPUT);
+
+
   delay(1000);
   // distanceTest2(-20, .1);
   // distanceTest2(0, .1);
@@ -126,33 +167,65 @@ void setup() {
 
 void loop() {
 
-  //Serial.println();
-  // AX_.setMotorPWM(0,.03);
-  // AX_.setMotorPWM(1,.03);
 
+  Serial.print("state = ");
+  Serial.println(state);
 
+  switch (state)
+  {
+    case 0:
+      setMoteurs(0);
+      break;
+      
+    case 1:
+      //recule et attrape le sapin
+      setMoteurs(-0.1);
+      activateMag(1);
+      if(limSwitch()){
+        resetAngle();
+        resetEncodeur();
+        state = 2;
+      } 
+      break;
+    
+    case 2:
+      //avance et se positionne
+      if(distanceTest2(10,vMax))state = 3;
+      stateOscille = 1;
+      break;
 
-  // Serial.print(vexEncoder_.getCount());
-  // Serial.print("  ||  ");
+    case 3:
+      //oscille
+      if(oscilleFAT2(20,10))state = 4;
+      break;
 
-  // distanceTest2(20,.4);
-  // delay(100);
-  // distanceTest2(0,.4);
-  // delay(100);
+    case 4:
+      //avance au panier
+      if (distanceTest2(100,vMax))state = 5;
+      break;
 
-  oscilleFAT();
-  distanceTest2(150,.6);
-  while (true){}
+    case 5:
+      //setup PID
+      pidPos_.setGoal(cmToTick(120));
+      pidAngle_.setGoal(0);
+      pidPos_.enable();
+      pidAngle_.enable();
+      state = 6;
+      break;
+
+    case 6:
+      //stabilise
+      pidPos_.run(0);
+      pidAngle_.run(1);
+      if (pidPos_.isAtGoal() && pidAngle_.isAtGoal())  state = 0;
+      break;
+
+    default:
+      
+      
+      break;
+  }
   
-  // if(angle_ > 10){
-  //   distanceTest2(200);
-  //   delay(100);
-  // }
-
-  // distanceTest(0);
-  // delay(1000);
-  
-
   // // POUR JSON
   // if(shouldRead_){
   //   readMsg();
@@ -166,35 +239,136 @@ void loop() {
   // // mise a jour des chronometres
   // timerSendMsg_.update();
   // timerPulse_.update();
-  
-  // mise à jour du PID
-  // pid_.run();
+    
 }
 
-void oscilleFAT(){
-  float tInit = float(millis())/1000;
-  float t;
-  float v;
-  bool chill = false;
+void securiteFAT() {
+  if (getEncoder() < cmToTick(0) || getEncoder() > cmToTick(120) ){
+    Serial.println("fuck toi je t'arrêêête");
+    Stop();
+    while (true){}
+  }
+}
+
+void crisseLeCampFAT(){
   do
   {
-    t = float(millis())/1000 - tInit;
-    v = vMax*sin(4*t);
-    AX_.setMotorPWM(0,v);
-    AX_.setMotorPWM(1,v);
-    
-    angle_ = getAngle();
-    Serial.print(t);
-    Serial.print("  ||  ");
-    Serial.print(v);
-    Serial.print("  ||  ");
-    Serial.println(angle_);
-    if(angle_ < -15) chill = true;
-  } while (angle_ < 0 || !chill);
+    securiteFAT();
+
+    AX_.setMotorPWM(0,-vMax);
+    AX_.setMotorPWM(1,-vMax);
+
+  } while (true);
   
 }
 
-void distanceTest2(float distanceGoal, float vit){
+bool oscilleFAT2(float distanceMax, float hauteur){
+  
+  switch (stateOscille)
+  {
+  case 1:
+    distanceInit = getEncoder();
+    angle_  = getAngle();
+    ready_set = false;
+    angle_go = acos((longueur-hauteur) / longueur);
+    stateOscille = 2;
+    break;
+  
+  case 2:
+    if(distanceTest2(distanceMax,0.4)) stateOscille = 3;
+    break;
+
+  case 3:
+    if (getAngle() >= angle_ )
+      {
+        angle_ = getAngle();
+      }else
+      {
+        stateOscille = 4;
+      }
+    break;
+
+  case 4:
+    if(distanceTest2(distanceInit,0.4)) stateOscille = 5;
+    break;
+
+  case 5:
+    if (getAngle() <= angle_ )
+      {
+        angle_ = getAngle();
+      }else
+      {
+        stateOscille = 2;
+      }
+    break;
+
+
+  default:
+
+    break;
+  }
+  
+  if(getAngle() < -1*angle_go) ready_set = true;
+  Serial.print("state = ");
+  Serial.print(stateOscille);
+  Serial.print(" | get_angle() = ");
+  Serial.print(getAngle());
+  Serial.print(" | angle_ = ");
+  Serial.print(angle_);
+  Serial.print(" | angle_go = ");
+  Serial.print(angle_go);
+  Serial.print(" | ready:");
+  Serial.println(ready_set);
+
+  return getAngle() > angle_go*.8 && ready_set;
+
+}
+
+bool oscilleFAT(float distanceMax, float hauteur){
+  float distanceInit = getEncoder();
+  angle_  = getAngle() ;
+ 
+  do {
+    distanceTest2(distanceMax,vMax);
+    Stop();
+    do{
+      securiteFAT();
+      // Serial.print(getAngle());
+      // Serial.print(" < ");
+      // Serial.println(angle_);
+
+      if (getAngle() >= angle_ )
+      {
+        angle_ = getAngle();
+      }else
+      {
+        break;
+      }
+    } while (1);
+    distanceTest2(distanceInit,vMax);
+    Stop();
+
+    do{
+      securiteFAT();
+
+      if (getAngle() <= angle_ )
+      {
+        angle_ = getAngle();
+      }else
+      {
+        break;
+      }
+    } while (1);
+
+  } while( fabs(getAngleDegre()) <  90);
+
+  float angle_go = acos((longueur-hauteur) / longueur);
+  if(angle_ < -1*angle_go) ready_set = true;
+  return angle_ < angle_go/1.5 && ready_set;
+}
+
+bool distanceTest2(float distanceCM, float vit){
+  float distanceGoal = cmToTick(distanceCM);
   int sens;
   int distInit = getEncoder();
   float distance;
@@ -205,228 +379,75 @@ void distanceTest2(float distanceGoal, float vit){
 
   AX_.setMotorPWM(0,sens * v);
   AX_.setMotorPWM(1,sens * v);
-  do
-  {
+  // do
+  // {
+    securiteFAT();
     distance = getEncoder();
-    // Serial.print(distanceGoal);
-    // Serial.print("  ||  ");
-    // Serial.println(distance);
-  } while (distance < distanceGoal - 1 || distance > distanceGoal + 1);
+  //   // Serial.print(distanceGoal);
+  //   // Serial.print("  ||  ");
+  //   // Serial.println(distance);
+  // } while (distance < distanceGoal - 1 || distance > distanceGoal + 1);
 
+  return !(distance < distanceGoal - 1 || distance > distanceGoal + 1);
   AX_.setMotorPWM(0,-sens * breakVit);
   AX_.setMotorPWM(1,-sens * breakVit);
 
 }
 
-void distanceTest(float distanceGoal){
-  int distInit = vexEncoder_.getCount();
-  Serial.print("distInit: ");
-  Serial.print(vexEncoder_.getCount());
-  Serial.print("  ||  ");
-  Serial.println(AX_.readEncoder(1));
-  int distance, sens;
-  float v;// = 0.3;
-  if (distanceGoal < distInit)
-  {
-    sens = -1;
-
-  } else
-  {
-    sens = 1;
-  }
-
-  int distToTravel = abs(distanceGoal - distInit);
-  int distTraveled;
-  float distAccel = 100;
-  float distDeccel = 100;
-
-  Serial.print("  distToTravel =  ");
-  Serial.println(distToTravel);
+void oscilleSIN(float hauteur){
+  float tInit = float(millis())/1000;
+  float t;
+  float v;
+  bool ready_set = false;
+  int hMax = 0;
+  int angle_go = acos((longueur-hauteur) / longueur);
+  Serial.println(angle_go);
   do
   {
-    distance = vexEncoder_.getCount();
-    distTraveled = abs(distance - distInit);
-
-    if(distTraveled < distAccel) v = min(vMax, .05 + distTraveled / distAccel * vMax);
-    else if(distTraveled < distToTravel - distDeccel) v = min(vMax, .05 + distTraveled / distAccel * vMax);
-    else v = 0.05 + vMax*(distToTravel - distTraveled)/distDeccel;
-
-    AX_.setMotorPWM(0,sens * v);
-    AX_.setMotorPWM(1,sens * v);
-
-  } while (distance < distanceGoal - 1 ||distance > distanceGoal + 1 );
-  Serial.print("distFin : ");
-  Serial.print(vexEncoder_.getCount());
-  Serial.print("  ||  ");
-  Serial.println(AX_.readEncoder(1));
-  AX_.setMotorPWM(0,-sens * breakVit);
-  AX_.setMotorPWM(1,-sens * breakVit);
-}
-
-void pidPivot(int angleGoal, int distanceGoalPO){
-  
-  float distanceGoal = PoToTic(distanceGoalPO);
-  float kpPiv = 0, kiPiv = 0, kdPiv = 0;
-  float kpDist = 0, kiDist = 0, kdDist = 0;
-  float epsilon = 1.01;
-  float angle, distance;
-  float erreurAngle, erreurDistance;
-  float intErreurAngle = 0, intErreurDistance = 0;
-  float derErreurAngle, derErreurDistance;
-  float vitesseDist, vitesseAngle;
-  bool distanceEstChill = false;
-  bool angleEstChill = false;
-  float vitesse;
-
-  do{
-    //mesure
-    distance = (AX_.readEncoder(0) + AX_.readEncoder(1))/2; 
-    angle = vexEncoder_.getCount();
-
-    //erreur
-    erreurAngle = angleGoal - angle;
-    intErreurAngle += erreurAngle;
-    derErreurAngle = erreurAngle/UPDATE_PERIODE;
-
-    erreurDistance = distanceGoal - distance;
-    intErreurDistance += erreurDistance;
-    derErreurDistance = erreurDistance/UPDATE_PERIODE;
-
-    //update
-    vitesseDist = kpDist * erreurDistance + kiDist * intErreurDistance + kdDist*derErreurDistance;
-    vitesseAngle = kpPiv * erreurAngle + kiPiv * intErreurAngle + kdPiv*derErreurAngle;
-    vitesse = min(vMax, vitesseDist + vitesseAngle);
-    vitesse = max(0,vitesse);
-
-    AX_.setMotorPWM(0, vitesse); 
-    AX_.setMotorPWM(1, vitesse); 
-
-    //check if at goal
-    distanceEstChill = distance < distanceGoal*epsilon && distance > distanceGoal/epsilon; 
-    angleEstChill = angle < angleGoal*epsilon && angle > angleGoal/epsilon; 
-
-  } while (!distanceEstChill || !angleEstChill);
-  
-  
-}
-
-
-//NE PAS UTILISER ; c'est utilisé par la fonction avance() pour aller tout droit (aka PID)
-void checkSpeed(float diff, float vit_actuelle, int side){
+    t = float(millis())/1000 - tInit;
+    v = vMax*sin(3.77*t);
+    AX_.setMotorPWM(0,v);
+    AX_.setMotorPWM(1,v);
     
-  nbr0 =  abs(AX_.readEncoder(0));
-  nbr1 =  abs(AX_.readEncoder(0));
-  diff_live = nbr0 - nbr1;
-  float changement;
-    
-  if (diff_live < 5) {
-    changement = 0.05;
-  }else if (diff_live < 10) 
-  {
-    changement = 0.1;
-  }else if (diff_live < 15) 
-  {
-    changement = 0.15;
-  }else if (diff_live < 20) 
-  {
-    changement = 0.2;
-  }
-  else
-  {
-    changement = 0.3;
-  }
-  
-  if (side == 1){
-    if ((nbr0 > nbr1)) {
-        AX_.setMotorPWM(0, vit_actuelle * (1-changement)); 
-        AX_.setMotorPWM(1, vit_actuelle * (1+changement)); 
-    } else if ((nbr0 < nbr1)) {
-        AX_.setMotorPWM(0, vit_actuelle * (1+changement)); 
-        AX_.setMotorPWM(1, vit_actuelle * (1-changement)); 
-    } else {
-        AX_.setMotorPWM(0,vit_actuelle);
-        AX_.setMotorPWM(1,vit_actuelle);
-    }
-  }else{
-     if ((nbr0 > nbr1)) {
-        AX_.setMotorPWM(0, vit_actuelle * (1-changement) * -1); 
-        AX_.setMotorPWM(1, vit_actuelle * (1+changement) * -1); 
-    } else if ((nbr0 < nbr1)) {
-        AX_.setMotorPWM(0, vit_actuelle * (1+changement) * -1); 
-        AX_.setMotorPWM(1, vit_actuelle * (1-changement) * -1); 
-    } else {
-        AX_.setMotorPWM(0,vit_actuelle * -1);
-        AX_.setMotorPWM(1,vit_actuelle * -1);
-    } 
-  }
-  
+    angle_ = getAngle();
+    // Serial.print(t);
+    // Serial.print("  ||  ");
+    // Serial.print(v);
+    // Serial.print("  ||  ");
+    // Serial.println(angle_);
+    Serial.print(angle_);
+    Serial.print("     ");
+    Serial.println(longueur - longueur*cos(angle_));
 
-  
+    if(angle_ < -1*angle_go) ready_set = true;
+  } while (t < 10);
+ //angle_ < angle_go/1.5 && ready_set
+
 }
 
-//Pour avancer
-void avance(int distance, int side){
-  float vitesse = 0.00;
-  float enc = 0;
-  //Pour acceleration
-  float dist_v = 1000;
-
-  abs(AX_.readEncoder(0));
-  abs(AX_.readEncoder(1));
-  while(abs(AX_.readEncoder(0)) < distance){
-    enc = abs(AX_.readEncoder(0));
-    if (enc < dist_v) {
-      vitesse = 0.05 + ( enc / dist_v) *(vMax - 0.05) ;
-    }
-    else if ( enc > distance - dist_v) {
-      vitesse = 0.05 + ((distance -  enc ) / dist_v) *(vMax - 0.05) ;
-    }
-    else
-    {
-      vitesse  = vMax;
-    }
-    checkSpeed(0,vitesse, side);
-  }
-  AX_.setMotorPWM(0,0);
-  AX_.setMotorPWM(1,0);
-  AX_.readResetEncoder(0);
-  AX_.readResetEncoder(1);
-  //delay(100);
-}
 
 //Pour arrêter sec
 void Stop(){
     AX_.setMotorPWM(0,0);
     AX_.setMotorPWM(1,0);
-    AX_.readResetEncoder(0);
-    AX_.readResetEncoder(1);
 }
 
-//Pour changer les unites
-int PoToTic(float po){
-  return (10000*po/(60-14.4));
-}
 
-//Pour activer (1) ou desactiver (0) l'aimant
-void activateMag(int choix){
-    if (choix == 1 || activateMag_){
-        digitalWrite(MAGPIN, HIGH); 
-    }else{
-        digitalWrite(MAGPIN, LOW);
-    }
-}
 
+///////////////////////////////////////////////////////////////////////AFFAIRES DU PROF////////////////////////////////////
 // Fonctions pour le PID
-double PIDmeasurement(){
-  // To do
-  return 0;
+
+void PIDcommand(){
+  double cmd = pidAngle_.getCmd();
+  cmd += 0.7 * pidPos_.getCmd();
+  setMoteurs(cmd);
 }
-void PIDcommand(double cmd){
-  // To do
-}
+
 void PIDgoalReached(){
   // To do
 }
+
+
 
 void startPulse(){
   /* Demarrage d'un pulse */
@@ -459,7 +480,7 @@ void sendMsg(){
   doc["time"] = millis();
   doc["potVex"] = analogRead(POTPIN);
   doc["encVex"] = vexEncoder_.getCount();
-  doc["goal"] = pid_.getGoal();
+  doc["goal"] = pidPos_.getGoal();
   doc["motorPos"] = PIDmeasurement();
   doc["voltage"] = AX_.getVoltage();
   doc["current"] = AX_.getCurrent(); 
@@ -472,7 +493,7 @@ void sendMsg(){
   doc["gyroX"] = imu_.getGyroX();
   doc["gyroY"] = imu_.getGyroY();
   doc["gyroZ"] = imu_.getGyroZ();
-  doc["isGoal"] = pid_.isAtGoal();
+  doc["isGoal"] = pidPos_.isAtGoal();
   // Serialisation
   serializeJson(doc, Serial);
   // Envoit
