@@ -68,6 +68,9 @@ double Precorded = 0; //garde la puissance de T-1 en mémoire
 double EnergieTot = 0; //garde l'énergie totale en mémoire
 bool Start = false;
 bool Arret = false;
+double Hauteur_foret;
+double Distance_bac;
+double Distance_arbres; 
 float Lpendule = 0.69; //en metres
 float Hsapin = 0.095; //en metres
 /*------------------------- Prototypes de fonctions -------------------------*/
@@ -474,7 +477,7 @@ void sendMsg(){
   doc["StopButton"] = Arret;
   doc["Energie"] = Energie();
   doc["hauteur"] = (Lpendule+Hsapin)*cos(getAngle()*3.978*PI/180); // AVEC SAPIN. Le 3.978 est un facteur Cambodge
-  
+
 
   doc["time"] = millis();
   doc["potVex"] = analogRead(POTPIN);
@@ -492,7 +495,7 @@ void sendMsg(){
   // doc["gyroX"] = imu_.getGyroX();
   // doc["gyroY"] = imu_.getGyroY();
   // doc["gyroZ"] = imu_.getGyroZ();
-  doc["isGoal"] = pid_.isAtGoal();
+  //doc["isGoal"] = pid_.isAtGoal();
   // Serialisation
   serializeJson(doc, Serial);
   // Envoit
@@ -577,11 +580,26 @@ void readMsg(){
     }    
 
     //Stop
-      // Start
     parse_msg = doc["StopButton"];
     if(!parse_msg.isNull()){
         Arret = doc["StopButton"];
     }    
+    //Hauteur Sapin
+    parse_msg = doc["Hauteur_foret"];
+    if(!parse_msg.isNull()){
+        Hauteur_foret = doc["Hauteur_foret"];
+    }    
+    //Distance bac
+    parse_msg = doc["Distance_bac"];
+    if(!parse_msg.isNull()){
+        Distance_bac = doc["Distance_bac"];
+    } 
+
+    //Distance sapin à sapin
+    parse_msg = doc["Distance_arbres"];
+    if(!parse_msg.isNull()){
+        Distance_arbres = doc["Distance_arbres"];
+    }     
 }
 
 double Energie(){
