@@ -218,9 +218,7 @@ void loop() {
       //   }
       // }
       activateMag(0);
-      setMoteurs(-0.1);
-      if(limSwitch()){
-        state = 0;
+        state = 6;
       } 
       //setup PID
       // pidPos_.setGoal(cmToTick(100));
@@ -231,6 +229,9 @@ void loop() {
       break;
 
     case 6:
+      setMoteurs(-0.1);
+      if(limSwitch()) setMoteur(0);
+      state = 0;
       //stabilise
       // pidPos_.run(0);
       // pidAngle_.run(1);
