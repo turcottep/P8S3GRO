@@ -71,6 +71,7 @@ bool Arret = false;
 double Hauteur_foret;
 double Distance_bac;
 double Distance_arbres; 
+double Distance_arbre_robot;
 float Lpendule = 0.69; //en metres
 float Hsapin = 0.095; //en metres
 /*------------------------- Prototypes de fonctions -------------------------*/
@@ -472,7 +473,7 @@ void sendMsg(){
   /* Envoit du message Json sur le port seriel */
   StaticJsonDocument<500> doc;
   // Elements du message
-    doc["Position"] = int (getEncoder()/0.45)/1.71; //(AX_.GetEncoder(0)/3200)*(2*PI*0.06); //en mètre
+  doc["Position"] = int (getEncoder()/0.45)/1.71; //(AX_.GetEncoder(0)/3200)*(2*PI*0.06); //en mètre
   doc["StartButton"] = Start;
   doc["StopButton"] = Arret;
   doc["Energie"] = Energie();
@@ -600,6 +601,12 @@ void readMsg(){
     if(!parse_msg.isNull()){
         Distance_arbres = doc["Distance_arbres"];
     }     
+    Distance_arbre_robot
+    //Distance sapin à sapin
+    parse_msg = doc["Distance_arbre_robot"];
+    if(!parse_msg.isNull()){
+        Distance_arbre_robot = doc["Distance_arbre_robot"];
+    }    
 }
 
 double Energie(){
