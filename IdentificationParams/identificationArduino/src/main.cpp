@@ -42,7 +42,7 @@ SoftTimer timerSendMsg_;            // chronometre d'envoie de messages
 SoftTimer timerPulse_;              // chronometre pour la duree d'un pulse
 
 uint16_t pulseTime_ = 0;            // temps dun pulse en ms
-float pulsePWM_ = 0.3;                // Amplitude de la tension au moteur [-1,1]
+float pulsePWM_ = 0.7;                // Amplitude de la tension au moteur [-1,1]
 
 
 float Axyz[3];                      // tableau pour accelerometre
@@ -65,7 +65,7 @@ float p6 = 1;
 float vit = 0;
 float breakVit = 0;
 float distanceInit;
-float vMax = 1;
+float vMax = .5;
 float angle_;
 float angle_go;
 float longueur = 69;
@@ -93,13 +93,13 @@ void pidPivot(int angle);
 void distanceTest(float distanceGoal);
 bool distanceTest2(float distanceGoal, float vit);
 double getEncoder(){return -vexEncoder_.getCount() - encodeurInit;}
-double getAngle(){return float(vexEncoderPivot_.getCount() - angleInit)/88*2*PI;}
+double getAngle(){return float(-vexEncoderPivot_.getCount() - angleInit)/88*2*PI;}
 double getAngleDegre(){return getAngle()/(2*PI)*360;}
 float cmToTick(float d){return d/0.425;}
 void activateMag(int choix){digitalWrite(MAGPIN, choix);}
 void setMoteurs(float v){AX_.setMotorPWM(0,-v);AX_.setMotorPWM(1,-v);}
 void stopProgram(){while(true){}}
-void resetAngle(){angleInit = vexEncoderPivot_.getCount();}
+void resetAngle(){angleInit = -vexEncoderPivot_.getCount();}
 void resetEncodeur(){encodeurInit = -vexEncoder_.getCount();}
 
 bool limSwitch(){return analogRead(SWITCH_PIN)>1000;}
@@ -166,10 +166,10 @@ void setup() {
 }
 
 void loop() {
+  
 
-
-  Serial.print("state = ");
-  Serial.println(state);
+  // Serial.print("state = ");
+  // Serial.println(state);
 
   switch (state)
   {
@@ -196,7 +196,7 @@ void loop() {
 
     case 3:
       //oscille
-      if(oscilleFAT2(20,10))state = 4;
+      if(oscilleFAT2(5,170))state = 0;
       break;
 
     case 4:
@@ -206,7 +206,7 @@ void loop() {
 
     case 5:
       //setup PID
-      pidPos_.setGoal(cmToTick(120));
+      pidPos_.setGoal(cmToTick(100));
       pidAngle_.setGoal(0);
       pidPos_.enable();
       pidAngle_.enable();
@@ -243,11 +243,11 @@ void loop() {
 }
 
 void securiteFAT() {
-  if (getEncoder() < cmToTick(0) || getEncoder() > cmToTick(120) ){
-    Serial.println("fuck toi je t'arrêêête");
-    Stop();
-    while (true){}
-  }
+  // if (getEncoder() < cmToTick(0) || getEncoder() > cmToTick(120) ){
+  //   Serial.println("fuck toi je t'arrêêête");
+  //   Stop();
+  //   while (true){}
+  // }
 }
 
 void crisseLeCampFAT(){
@@ -262,23 +262,24 @@ void crisseLeCampFAT(){
   
 }
 
-bool oscilleFAT2(float distanceMax, float hauteur){
+bool oscilleFAT2(float distanceMax, float angleDegre){
   
   switch (stateOscille)
   {
   case 1:
     distanceInit = getEncoder();
     angle_  = getAngle();
-    ready_set = false;
-    angle_go = acos((longueur-hauteur) / longueur);
+    // ready_set = false;
+    // angle_go = acos((longueur-hauteur) / longueur);
     stateOscille = 2;
     break;
   
   case 2:
-    if(distanceTest2(distanceMax,0.4)) stateOscille = 3;
+    if(distanceTest2(distanceInit + distanceMax,vMax)) stateOscille = 3;
     break;
 
   case 3:
+    setMoteurs(0);
     if (getAngle() >= angle_ )
       {
         angle_ = getAngle();
@@ -289,10 +290,11 @@ bool oscilleFAT2(float distanceMax, float hauteur){
     break;
 
   case 4:
-    if(distanceTest2(distanceInit,0.4)) stateOscille = 5;
+    if(distanceTest2(distanceInit,vMax)) stateOscille = 5;
     break;
 
   case 5:
+    setMoteurs(0);
     if (getAngle() <= angle_ )
       {
         angle_ = getAngle();
@@ -309,10 +311,10 @@ bool oscilleFAT2(float distanceMax, float hauteur){
   }
   
   if(getAngle() < -1*angle_go) ready_set = true;
-  Serial.print("state = ");
+  Serial.print("stateOscille = ");
   Serial.print(stateOscille);
-  Serial.print(" | get_angle() = ");
-  Serial.print(getAngle());
+  Serial.print(" | get_angleDegre() = ");
+  Serial.print(getAngleDegre());
   Serial.print(" | angle_ = ");
   Serial.print(angle_);
   Serial.print(" | angle_go = ");
@@ -320,52 +322,10 @@ bool oscilleFAT2(float distanceMax, float hauteur){
   Serial.print(" | ready:");
   Serial.println(ready_set);
 
-  return getAngle() > angle_go*.8 && ready_set;
+  return getAngleDegre() > angleDegre;
 
 }
 
-bool oscilleFAT(float distanceMax, float hauteur){
-  float distanceInit = getEncoder();
-  angle_  = getAngle() ;
- 
-  do {
-    distanceTest2(distanceMax,vMax);
-    Stop();
-    do{
-      securiteFAT();
-      // Serial.print(getAngle());
-      // Serial.print(" < ");
-      // Serial.println(angle_);
-
-      if (getAngle() >= angle_ )
-      {
-        angle_ = getAngle();
-      }else
-      {
-        break;
-      }
-    } while (1);
-    distanceTest2(distanceInit,vMax);
-    Stop();
-
-    do{
-      securiteFAT();
-
-      if (getAngle() <= angle_ )
-      {
-        angle_ = getAngle();
-      }else
-      {
-        break;
-      }
-    } while (1);
-
-  } while( fabs(getAngleDegre()) <  90);
-
-  float angle_go = acos((longueur-hauteur) / longueur);
-  if(angle_ < -1*angle_go) ready_set = true;
-  return angle_ < angle_go/1.5 && ready_set;
-}
 
 bool distanceTest2(float distanceCM, float vit){
   float distanceGoal = cmToTick(distanceCM);
@@ -394,36 +354,7 @@ bool distanceTest2(float distanceCM, float vit){
 
 }
 
-void oscilleSIN(float hauteur){
-  float tInit = float(millis())/1000;
-  float t;
-  float v;
-  bool ready_set = false;
-  int hMax = 0;
-  int angle_go = acos((longueur-hauteur) / longueur);
-  Serial.println(angle_go);
-  do
-  {
-    t = float(millis())/1000 - tInit;
-    v = vMax*sin(3.77*t);
-    AX_.setMotorPWM(0,v);
-    AX_.setMotorPWM(1,v);
-    
-    angle_ = getAngle();
-    // Serial.print(t);
-    // Serial.print("  ||  ");
-    // Serial.print(v);
-    // Serial.print("  ||  ");
-    // Serial.println(angle_);
-    Serial.print(angle_);
-    Serial.print("     ");
-    Serial.println(longueur - longueur*cos(angle_));
 
-    if(angle_ < -1*angle_go) ready_set = true;
-  } while (t < 10);
- //angle_ < angle_go/1.5 && ready_set
-
-}
 
 
 //Pour arrêter sec
