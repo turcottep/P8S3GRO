@@ -1,0 +1,49 @@
+{
+    "name": "Grove IMU 9DOF", 
+    "version": "1.0.0", 
+    "keywords": [
+        "sensors"
+    ], 
+    "description": "Arduino library for controlling Grove IMU 9DOF, using I2C communication.", 
+    "frameworks": [
+        "arduino"
+    ], 
+    "platforms": [
+        "atmelavr", 
+        "atmelsam", 
+        "espressif32", 
+        "espressif8266", 
+        "intel_arc32", 
+        "microchippic32", 
+        "nordicnrf51", 
+        "nordicnrf52", 
+        "ststm32", 
+        "teensy", 
+        "timsp430"
+    ], 
+    "authors": [
+        {
+            "email": "techsupport@seeed.cc", 
+            "url": null, 
+            "maintainer": true, 
+            "name": "Seeed Studio"
+        }
+    ], 
+    "repository": {
+        "type": "git", 
+        "url": "https://github.com/Seeed-Studio/Grove_IMU_9DOF"
+    }, 
+    "homepage": null, 
+    "export": {
+        "include": null, 
+        "exclude": [
+            "extras", 
+            "docs", 
+            "tests", 
+            "test", 
+            "*.doxyfile", 
+            "*.pdf"
+        ]
+    }, 
+    "id": 3644
+}
