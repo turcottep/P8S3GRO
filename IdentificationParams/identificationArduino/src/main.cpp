@@ -478,7 +478,10 @@ void sendMsg(){
   doc["StopButton"] = Arret;
   doc["Energie"] = Energie();
   doc["hauteur"] = (Lpendule+Hsapin)*cos(getAngle()*3.978*PI/180); // AVEC SAPIN. Le 3.978 est un facteur Cambodge
-
+  doc["Dist. arbre robot "] = Distance_arbre_robot;
+  doc["Hauteur foret"] = Hauteur_foret;
+  doc["Dist. bac"] = Distance_bac;
+  doc["Dist. arbre"] = Distance_arbres;
 
   doc["time"] = millis();
   doc["potVex"] = analogRead(POTPIN);
