@@ -68,6 +68,7 @@ double Precorded = 0; //garde la puissance de T-1 en mémoire
 double EnergieTot = 0; //garde l'énergie totale en mémoire
 bool Start = false;
 bool Arret = false;
+bool Aimant = false;
 double Hauteur_foret;
 double Distance_bac;
 double Distance_arbres; 
@@ -482,6 +483,7 @@ void sendMsg(){
   doc["Hauteur foret"] = Hauteur_foret;
   doc["Dist. bac"] = Distance_bac;
   doc["Dist. arbre"] = Distance_arbres;
+  doc["Aimant"]=Aimant;
 
   doc["time"] = millis();
   doc["potVex"] = analogRead(POTPIN);
@@ -587,6 +589,11 @@ void readMsg(){
     parse_msg = doc["StopButton"];
     if(!parse_msg.isNull()){
         Arret = doc["StopButton"];
+    }
+    //Aimant
+    parse_msg = doc["Aimant_on"];
+    if(!parse_msg.isNull()){
+        Aimant = doc["Aimant_on"];
     }    
     //Hauteur Sapin
     parse_msg = doc["Hauteur_foret"];
@@ -604,7 +611,7 @@ void readMsg(){
     if(!parse_msg.isNull()){
         Distance_arbres = doc["Distance_arbres"];
     }     
-    Distance_arbre_robot
+    //Distance_arbre_robot
     //Distance sapin à sapin
     parse_msg = doc["Distance_arbre_robot"];
     if(!parse_msg.isNull()){
