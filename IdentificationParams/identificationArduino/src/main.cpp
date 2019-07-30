@@ -69,6 +69,7 @@ double Trecorded = 0; //garde le temps en millis de la dernière lecture en mém
 double EnergieTot = 0; //garde l'énergie totale en mémoire
 bool Start = false;
 bool Arret = false;
+bool Restart = false;
 double Hauteur_foret;
 double Distance_bac = 130;
 double Distance_arbres = 0; 
@@ -198,6 +199,7 @@ void loop() {
     case 0:
       if(Start)distanceTest2(20,.7);
       if(Arret) Stop();
+      if(Restart) state=1;
       //setMoteurs(0);
       //setMag(0);
       //Serial.println(absDeg());
@@ -302,6 +304,9 @@ void loop() {
   }
 
   // POUR JSON
+  if (activateMag_){
+    setMag(1);
+  }
   if(shouldRead_){
     readMsg();
   }
@@ -544,7 +549,8 @@ void sendMsg(){
   doc["StopButton"] = Arret;
   doc["Energie"] = Energie();
   doc["hauteur"] = (Lpendule+Hsapin)*(cos(getAngle())); // AVEC SAPIN. Le 3.978 est un facteur Cambodge
-
+  doc["activateMag"] = activateMag_;
+  doc["Reset"] = Restart;
 
   doc["time"] = millis();
   doc["potVex"] = analogRead(POTPIN);
@@ -645,7 +651,11 @@ void readMsg(){
     if(!parse_msg.isNull()){
         Start = doc["StartButton"];
     }    
-
+  //Reset
+   parse_msg = doc["Reset"];
+    if(!parse_msg.isNull()){
+        Restart = doc["Reset"];
+    } 
     //Stop
     parse_msg = doc["StopButton"];
     if(!parse_msg.isNull()){
