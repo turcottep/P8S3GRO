@@ -200,6 +200,7 @@ void loop() {
       if(Start)distanceTest2(20,.7);
       if(Arret) Stop();
       if(Restart) state=1;
+      if(activateMag_) setMag(1);
       //setMoteurs(0);
       //setMag(0);
       //Serial.println(absDeg());
