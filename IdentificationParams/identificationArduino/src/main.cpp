@@ -74,6 +74,7 @@ double Hauteur_foret;
 double Distance_bac = 130;
 double Distance_arbres = 0; 
 double Distance_arbre_robot = 40;
+int CAS = -1;
 float Lpendule = 37; //en cm
 float Hpivot_sol = 94; // en cm
 float Hsapin = 9.5; //en cm
@@ -683,6 +684,13 @@ void readMsg(){
     if(!parse_msg.isNull()){
         Distance_arbre_robot = doc["Distance_arbre_robot"];
     }    
+
+    //Distance_arbre_robot
+    parse_msg = doc["Choix_defi"];
+    if(!parse_msg.isNull()){
+        CAS = doc["Choix_defi"];
+    }
+
 }
 
 double Energie(){
