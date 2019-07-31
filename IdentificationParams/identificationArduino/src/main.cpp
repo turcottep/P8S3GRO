@@ -68,6 +68,7 @@ double Precorded = 0; //garde la puissance de T-1 en mémoire
 double EnergieTot = 0; //garde l'énergie totale en mémoire
 bool Start = false;
 bool Arret = false;
+<<<<<<< Updated upstream
 bool Aimant = false;
 double Hauteur_foret;
 double Distance_bac;
@@ -75,6 +76,37 @@ double Distance_arbres;
 double Distance_arbre_robot;
 float Lpendule = 0.69; //en metres
 float Hsapin = 0.095; //en metres
+=======
+bool Restart = false;
+double Hauteur_foret;
+double Distance_bac = 130;
+double Distance_arbres = 0; 
+double Distance_arbre_robot = 40;
+float Lpendule = 37; //en cm
+float Hpivot_sol = 94; // en cm
+float Hsapin = 9.5; //en cm
+
+float distanceBeak = 20; //cm
+float vit = 0;
+float breakVit = 0;
+float distanceInit;
+float vMax = .5;
+float vAccel = 0.5;
+float vMaxPid = 0.7;
+float angle_;
+float angle_go;
+float encodeurInit = 0;
+int state; //machine à états
+int stateOscille = 1; //machine à états oscillation
+int stateOscillePas = 1;
+bool ready_set = false;
+bool read_ready_set = false;
+bool pretAlacher =false;
+float posMin;
+float posMax;
+float timeStart;
+int state2;
+>>>>>>> Stashed changes
 /*------------------------- Prototypes de fonctions -------------------------*/
 double Energie();
 void timerCallback();
@@ -83,8 +115,14 @@ void endPulse();
 void sendMsg(); 
 void readMsg();
 void serialEvent();
+<<<<<<< Updated upstream
 double PIDmeasurement();
 void PIDcommand(double cmd);
+=======
+double PIDmeasurementAngle();
+void PIDcommand();
+void PIDcommand2();
+>>>>>>> Stashed changes
 void PIDgoalReached();
 void checkSpeed(float diff, float vit_actuelle, int side);
 void avance(int distance, int side);
@@ -93,11 +131,39 @@ int PoToTic(float cm);
 void activateMag(int choix);
 void pidPivot(int angle);
 void distanceTest(float distanceGoal);
+<<<<<<< Updated upstream
 void distanceTest2(float distanceGoal, float vit);
 float getEncoder(){return -vexEncoder_.getCount();}
 float getAngle(){return vexEncoderPivot_.getCount() - angleInit;}
 
 void oscilleFAT();
+=======
+bool distanceTest2(float distanceGoal, float vit);
+double getEncoder(){return -vexEncoder_.getCount() - encodeurInit;}
+double getAngle(){return float(-vexEncoderPivot_.getCount() - angleInit)/88*2*PI;}
+double getAngleDegre(){return getAngle()/(2*PI)*360;}
+float cmToTick(float d){return d/0.425;}
+float absDeg(){return fabs(getAngleDegre())-360*int(fabs(getAngleDegre())/360); }
+void setMag(int choix){digitalWrite(MAGPIN, choix);}
+void setMoteurs(float v){AX_.setMotorPWM(0,-v);AX_.setMotorPWM(1,-v);}
+void stopProgram(){Stop(); while(true){}}
+void resetAngle(){angleInit = -vexEncoderPivot_.getCount();}
+void resetEncodeur(){encodeurInit = -vexEncoder_.getCount();}
+
+bool limSwitch(){return analogRead(SWITCH_PIN)>1000;}
+bool sendJSON = true;
+bool oscilleFAT2(float distance, float hauteur); // Pour faire osciller le pendule avec le sapin
+bool oscilleFAT3(float distance); // Pour faire osciller le pendule avec le sapin
+void oscilleSIN();
+bool oscillepasFAT2(float distance); // Pour ne pas faire osciller le pendule
+void crisseLeCampFAT();
+void(* resetFunc) (void) = 0;
+void fonctionsProf();
+void sapinsMinute();
+void largeurForet2();
+void normal();
+void inputQt();
+>>>>>>> Stashed changes
 /*---------------------------- fonctions "Main" -----------------------------*/
 
 void setup() {
@@ -120,7 +186,11 @@ void setup() {
   timerPulse_.setCallback(endPulse);
   
   // Initialisation du PID
+<<<<<<< Updated upstream
   pid_.setGains(0.25,0.1 ,0);
+=======
+  pidPos_.setGains(0.005,0.00001 ,0);
+>>>>>>> Stashed changes
     // Attache des fonctions de retour
     pid_.setMeasurementFunc(PIDmeasurement);
     pid_.setCommandFunc(PIDcommand);
@@ -136,7 +206,12 @@ void setup() {
   // distanceTest2(0, .1);
 }
 
+<<<<<<< Updated upstream
 void loop() {
+=======
+  //pidAngle_.setGains(-0.4,-0.00001 ,0);
+  pidAngle_.setGains(-0.4, -0.00001,0);
+>>>>>>> Stashed changes
 
   //Serial.println();
   // AX_.setMotorPWM(0,.03);
@@ -144,6 +219,7 @@ void loop() {
 
 
 
+<<<<<<< Updated upstream
   // Serial.print(vexEncoder_.getCount());
   // Serial.print("  ||  ");
 
@@ -214,6 +290,401 @@ void oscilleFAT(){
 }
 
 void distanceTest2(float distanceGoal, float vit){
+=======
+  delay(1000);
+  state = 1;
+  state2 = 1;
+}
+
+float cmd;
+void loop() {
+  //sapinsMinute();
+  //normal();
+  largeurForet2();
+  //Serial.println(getAngleDegre());
+  // inputQt();
+  // fonctionsProf();
+}
+
+void largeurForet(){
+  switch (state)
+  {
+  
+  case 0:
+    Stop();
+    if(getAngleDegre() > 101) pretAlacher = true;
+    if(getAngleDegre()<100 && pretAlacher)setMag(0);
+    break;
+
+  case 1:
+    setMag(1);
+
+      setMoteurs(-0.15);
+      if(limSwitch()){
+        setMoteurs(0);
+        //resetAngle();
+        resetEncodeur();
+        delay(1000);
+        state = 2;
+      }
+    break;
+
+  case 2:
+    if(distanceTest2(5,.5)) state = 3;
+    break;
+
+
+  case 3:
+    oscilleFAT3(4);
+    if(getAngleDegre()<-140) ready_set = true;
+    if(ready_set){
+      if(getAngleDegre() > -90)state = 4;
+    }
+ 
+    break;
+  
+  case 4:
+    if(getAngleDegre() > 0)state = 5;
+    break;
+
+  case 5:
+    setMoteurs(-1);
+    delay(75);
+    state = 6;
+    break;
+
+  case 6:
+    if(distanceTest2(Distance_bac-10,1)) state = 0;
+    if(getAngleDegre() > 101) pretAlacher = true;
+    if(getAngleDegre()<100 && pretAlacher)setMag(0);
+    break;
+
+  }
+
+}
+
+void largeurForet2(){
+  switch (state)
+  {
+  
+  case 0:
+    Stop();
+    break;
+
+  case 1:
+    setMag(1);
+
+      setMoteurs(-0.15);
+      if(limSwitch()){
+        setMoteurs(0);
+        //resetAngle();
+        resetEncodeur();
+        delay(1000);
+        state = 2;
+      }
+    break;
+
+  case 2:
+    if(distanceTest2(60,.2)) state = 3;
+    break;
+
+
+  case 3:
+    oscilleSIN();
+    state = 4;
+    break;
+  
+  case 4:
+    if(distanceTest2(Distance_bac-10,1)) state = 0;
+    break;
+
+  case 5:
+    setMoteurs(-1);
+    delay(75);
+    state = 6;
+    break;
+
+  case 6:
+    if(distanceTest2(Distance_bac-10,1)) state = 0;
+    if(getAngleDegre() > 101) pretAlacher = true;
+    if(getAngleDegre()<100 && pretAlacher)setMag(0);
+    break;
+
+  }
+
+}
+
+void oscilleSIN(){
+  float tInit = float(millis())/1000;
+  float t;
+  float v;
+  bool chill = false;
+  do
+  {
+    t = float(millis())/1000 - tInit;
+    v = sin(8*t);
+    AX_.setMotorPWM(0,v);
+    AX_.setMotorPWM(1,v);
+    
+    angle_ = getAngleDegre();
+    Serial.print(t);
+    Serial.print("  ||  ");
+    Serial.print(v);
+    Serial.print("  ||  ");
+    Serial.println(angle_);
+    if(t>10) chill = true;
+  } while (!chill);
+  
+}
+
+void sapinsMinute(){
+  switch (state)
+  {
+    case 1:
+      setMag(1);
+
+      setMoteurs(-0.15);
+      if(limSwitch()){
+        setMoteurs(0);
+        resetAngle();
+        resetEncodeur();
+        delay(1000);
+        state = 2;
+      } 
+      break;
+    
+    case 2:
+      setMoteurs(1);
+      while (getEncoder()<cmToTick(38)){}
+      setMoteurs(-1);
+      delay(175);
+      setMoteurs(1);
+      delay(200);
+      setMag(0);
+      delay(200);
+      setMoteurs(-1);
+      Serial.println("1");
+      while(getEncoder()>cmToTick(10)){}
+      Serial.println("2");
+      setMoteurs(0);
+      Serial.println("3");
+      delay(500);
+      state = 1;
+      break;
+  }
+}
+
+void normal(){
+  switch (state)
+  {
+    case 0:
+      setMoteurs(0);   
+      break;
+      
+    case 1:
+      // recule et attrape le sapin
+      setMag(1);
+
+      setMoteurs(-0.15);
+      if(limSwitch()){
+        setMoteurs(0);
+        resetAngle();
+        resetEncodeur();
+        delay(1000);
+        state = 2;
+      } 
+      break;
+    
+    case 2:
+      // avance et se positionne
+      if(distanceTest2(10,vMax)){
+     
+        stateOscille = 1;  // *** ATTENTION si vous modifiez cette ligne le robot peut crisser le camp par terre et détruire une roue!
+        state = 3;
+      }
+      break;
+
+    case 3:
+      // oscille
+      if(oscilleFAT2(8,120))state = 4;
+      if(getAngleDegre()>360 || getAngleDegre()<-360)state = 1;
+
+      break;
+
+    case 4:
+      // avance au panier
+      if (distanceTest2(Distance_bac-distanceBeak,1)){
+        state = 5;
+        setMoteurs(0);
+      }
+      break;
+
+    case 5:
+      // setup PID
+      pidAngle_.setGains(-0.4,-0.00001 ,0);
+
+      pidPos_.setGoal(cmToTick(Distance_bac));
+      pidAngle_.setGoal(0);
+      pidPos_.enable();
+      pidAngle_.enable();
+
+      posMax = getEncoder() + cmToTick(8);
+      posMin = getEncoder() + cmToTick(8);
+      state = 6;
+      timeStart = millis();
+      break;
+
+    case 6:
+
+      //stabilise
+      pidPos_.run(0);
+      pidAngle_.run(1);
+      if(millis() > timeStart+10000) state = 7;
+      break;
+
+     case 7:
+      //lache sapin
+      setMag(0);
+      setMoteurs(1);
+      delay(200);
+      setMoteurs(-1);
+      delay(200);
+      state = 8;
+      break;
+
+    case 8:
+      //recule vite
+      if(distanceTest2(50,.5)) state = 1;
+      break;
+
+    default:
+      
+      
+      break;
+  }
+}
+
+bool oscilleFAT2(float distanceMax, float angleDegreGoal){
+  
+  switch (stateOscille)
+  {
+  case 1:
+    distanceInit = getEncoder();
+    angle_  = getAngle();
+    // ready_set = false;
+    // angle_go = acos((Lpendule-hauteur) / Lpendule);
+    stateOscille = 3;
+    break;
+  
+  case 2:
+    if(distanceTest2(distanceInit-distanceMax,vMax)) stateOscille = 3;
+    break;
+
+  case 3:
+    setMoteurs(0);
+    if (getAngle() >= angle_ )
+      {
+        angle_ = getAngle();
+      }else
+      {
+        if( absDeg() < 10) stateOscille = 4;
+      }
+    break;
+
+  case 4:
+    if(distanceTest2(distanceInit + distanceMax,vMax)) stateOscille = 5;
+    break;
+
+  case 5:
+    setMoteurs(0);
+    if (getAngle() <= angle_ )
+      {
+        angle_ = getAngle();
+      }else
+      {
+        if( absDeg() < 10) stateOscille = 2; 
+      }
+    break;
+
+    default:
+    break;
+  }
+ 
+  
+
+  // Serial.print("stateOscille = ");
+  // Serial.print(stateOscille);
+  // Serial.print(" | get_angleDegre() = ");
+  // Serial.print(getAngleDegre());
+  // Serial.println();
+  if(getAngleDegre() < -angleDegreGoal) ready_set = true;
+  return ready_set && getAngleDegre() > angleDegreGoal;
+}
+
+bool oscilleFAT3(float distanceMax){
+  
+  switch (stateOscille)
+  {
+  case 1:
+    distanceInit = getEncoder();
+    angle_  = getAngle();
+    // ready_set = false;
+    // angle_go = acos((Lpendule-hauteur) / Lpendule);
+    stateOscille = 3;
+    break;
+  
+  case 2:
+    if(distanceTest2(distanceInit-distanceMax,vMax)) stateOscille = 3;
+    if(absDeg() > 90) stateOscille = 3;
+    break;
+
+  case 3:
+    setMoteurs(0);
+    if (getAngle() >= angle_ )
+      {
+        angle_ = getAngle();
+      }else
+      {
+        if( absDeg() < 10) stateOscille = 4;
+      }
+    break;
+
+  case 4:
+    if(distanceTest2(distanceInit + distanceMax,vMax)) stateOscille = 5;
+    //if(absDeg() > 90) stateOscille = 5; nerf
+    break;
+
+  case 5:
+    setMoteurs(0);
+    if (getAngle() <= angle_ )
+      {
+        angle_ = getAngle();
+      }else
+      {
+        if( absDeg() < 10) stateOscille = 2; 
+      }
+    break;
+
+  }
+  //while(getAngleDegre() > 140) setMoteurs(-.8);
+  //if(getAngleDegre() < -angleDegreGoal) ready_set = true;
+
+  // Serial.print("stateOscille = ");
+  // Serial.print(stateOscille);
+  // Serial.print(" | get_angleDegre() = ");
+  // Serial.print(getAngleDegre());
+  // Serial.println();
+  //return ready_set && absDeg() < (angleDegreGoal-10);
+  //if(getAngleDegre() < -angleDegreGoal) ready_set = true;
+  //return ready_set && getAngleDegre() > angleDegreGoal;
+}
+
+
+
+
+bool distanceTest2(float distanceCM, float vit){
+  float distanceGoal = cmToTick(distanceCM);
+>>>>>>> Stashed changes
   int sens;
   int distInit = getEncoder();
   float distance;
@@ -224,8 +695,13 @@ void distanceTest2(float distanceGoal, float vit){
 
   AX_.setMotorPWM(0,sens * v);
   AX_.setMotorPWM(1,sens * v);
+<<<<<<< Updated upstream
   do
   {
+=======
+  // do
+  // {
+>>>>>>> Stashed changes
     distance = getEncoder();
     // Serial.print(distanceGoal);
     // Serial.print("  ||  ");
@@ -282,6 +758,7 @@ void distanceTest(float distanceGoal){
   AX_.setMotorPWM(1,-sens * breakVit);
 }
 
+<<<<<<< Updated upstream
 void pidPivot(int angleGoal, int distanceGoalPO){
   
   float distanceGoal = PoToTic(distanceGoalPO);
@@ -325,8 +802,13 @@ void pidPivot(int angleGoal, int distanceGoalPO){
     angleEstChill = angle < angleGoal*epsilon && angle > angleGoal/epsilon; 
 
   } while (!distanceEstChill || !angleEstChill);
+=======
+void PIDcommand(){
+  double cmd = pidAngle_.getCmd();
+>>>>>>> Stashed changes
   
   
+<<<<<<< Updated upstream
 }
 
 
@@ -341,6 +823,29 @@ void checkSpeed(float diff, float vit_actuelle, int side){
   if (diff_live < 5) {
     changement = 0.05;
   }else if (diff_live < 10) 
+=======
+  cmd +=  pidPos_.getCmd();
+
+  if(cmd > vMaxPid) cmd = vMaxPid;
+  else if(cmd < -vMaxPid) cmd = -vMaxPid;
+
+  setMoteurs(cmd);
+
+
+  // Serial.print("cmd = ");
+  // Serial.print(" = ");
+  // Serial.println(cmd);
+
+}
+
+void PIDcommand2(){
+  setMoteurs(pidAngle_.getCmd());
+}
+
+double PIDmeasurementAngle(){
+  float cur_pos_ = sin(getAngle());
+  for (int i = BUFFERSIZE; i >0; i--)
+>>>>>>> Stashed changes
   {
     changement = 0.1;
   }else if (diff_live < 15) 
@@ -554,6 +1059,7 @@ void readMsg(){
       p2 = doc["pulseTime"].as<float>();
     }
 
+
     parse_msg = doc["p3"];
     if(!parse_msg.isNull()){
       p3 = doc["pulseTime"].as<float>();
@@ -583,7 +1089,13 @@ void readMsg(){
     parse_msg = doc["StartButton"];
     if(!parse_msg.isNull()){
         Start = doc["StartButton"];
-    }    
+    }  
+
+    //Reset
+   parse_msg = doc["Reset"];
+    if(!parse_msg.isNull()){
+        Restart = doc["Reset"];
+    } else Restart = 0;
 
     //Stop
     parse_msg = doc["StopButton"];
@@ -620,9 +1132,44 @@ void readMsg(){
 }
 
 double Energie(){
+<<<<<<< Updated upstream
 double Pactuelle = AX_.getVoltage()*AX_.getCurrent(); //puissance à ce moment
 double DeltaP = Pactuelle-Precorded;
 Precorded = Pactuelle;
 EnergieTot = EnergieTot + DeltaP/(millis()*1000); 
 return EnergieTot;
+=======
+  EnergieTot +=  AX_.getVoltage()*AX_.getCurrent() * (millis()-Trecorded)/1000;
+  Trecorded = millis();
+  return EnergieTot;
+}
+
+void fonctionsProf(){
+   if(shouldRead_){
+    readMsg();
+  }
+  if(shouldSend_ && sendJSON){
+    // Serial.print("state = ");
+    // Serial.println(state);
+    //shouldSend_ = false;
+    //Serial.println(Energie());
+    sendMsg();
+  }
+  if(shouldPulse_){
+    startPulse();
+  }
+  // // mise a jour des chronometres
+  timerSendMsg_.update();
+  // timerPulse_.update();
+}
+
+void inputQt(){
+  if(Start) distanceTest2(10,.2);
+  if(Arret) Stop();
+  if(Restart) {
+    EnergieTot = 0;
+    state = 1;
+    Restart = false;
+  }
+>>>>>>> Stashed changes
 }
